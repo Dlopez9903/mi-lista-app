@@ -1,0 +1,15 @@
+{
+  "name": "Mi Lista de Tareas",
+  "short_name": "MiLista",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#28a745",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2387/2387635.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
