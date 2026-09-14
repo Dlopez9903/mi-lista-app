@@ -3,12 +3,7 @@ import {
   getFirestore, 
   collection, 
   addDoc, 
-  deleteDoc, 
-  doc, 
-  onSnapshot, 
-  query, 
-  orderBy,
-  enableIndexedDbPersistence 
+  onSnapshot 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -23,73 +18,89 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const actionsRef = collection(db, "acciones");
 
-enableIndexedDbPersistence(db).catch((err) => {
-  console.log("Persistencia offline no disponible:", err.code);
-});
+let deviceId = localStorage.getItem('deviceId');
+if (!deviceId) {
+  deviceId = 'dev_' + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem('deviceId', deviceId);
+}
 
-const tasksRef = collection(db, "tareas");
+let myTasks = JSON.parse(localStorage.getItem('my_local_tasks')) || [];
+
 const taskInput = document.getElementById('taskInput');
 const addBtn = document.getElementById('addBtn');
 const taskList = document.getElementById('taskList');
 
-addBtn.addEventListener('click', addTask);
+renderList();
+
+// Eventos de entrada
+addBtn.addEventListener('click', () => addTask(taskInput.value.trim()));
 taskInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') addTask();
+  if (e.key === 'Enter') addTask(taskInput.value.trim());
 });
 
-async function addTask() {
-  const text = taskInput.value.trim();
+function addTask(text) {
   if (text === '') return;
+  myTasks.push(text);
+  saveAndRender();
+  taskInput.value = '';
+}
 
-  try {
-    await addDoc(tasksRef, {
-      text: text,
-      createdAt: Date.now()
+function saveAndRender() {
+  localStorage.setItem('my_local_tasks', JSON.stringify(myTasks));
+  renderList();
+}
+
+function renderList() {
+  taskList.innerHTML = '';
+  myTasks.forEach((text, index) => {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = text;
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'X';
+    deleteBtn.classList.add('delete-btn');
+
+    deleteBtn.addEventListener('click', async () => {
+      deleteTaskLocal(index);
+      
+      await addDoc(actionsRef, {
+        action: 'DELETE',
+        index: index,
+        sender: deviceId,
+        timestamp: Date.now()
+      });
     });
-    taskInput.value = '';
-  } catch (error) {
-    console.error("Error al agregar:", error);
+
+    li.appendChild(span);
+    li.appendChild(deleteBtn);
+    taskList.appendChild(li);
+  });
+}
+
+function deleteTaskLocal(index) {
+  if (index >= 0 && index < myTasks.length) {
+    myTasks.splice(index, 1);
+    saveAndRender();
   }
 }
 
-const q = query(tasksRef, orderBy("createdAt", "asc"));
-
-onSnapshot(q, (snapshot) => {
-  taskList.innerHTML = ''; 
-
-  snapshot.forEach((docSnapshot) => {
-    const data = docSnapshot.data();
-    const id = docSnapshot.id;
-    createTaskElement(data.text, id);
+// Escuchar comandos de sincronización desde el otro dispositivo
+onSnapshot(actionsRef, (snapshot) => {
+  snapshot.docChanges().forEach((change) => {
+    if (change.type === "added") {
+      const data = change.doc.data();
+      if (data.sender !== deviceId && data.action === 'DELETE') {
+        deleteTaskLocal(data.index);
+      }
+    }
   });
 });
 
-function createTaskElement(text, id) {
-  const li = document.createElement('li');
-  const span = document.createElement('span');
-  span.textContent = text;
-  
-  const deleteBtn = document.createElement('button');
-  deleteBtn.textContent = 'X';
-  deleteBtn.classList.add('delete-btn');
-  
-  deleteBtn.addEventListener('click', async () => {
-    try {
-      await deleteDoc(doc(db, "tareas", id));
-    } catch (error) {
-      console.error("Error al borrar:", error);
-    }
-  });
-
-  li.appendChild(span);
-  li.appendChild(deleteBtn);
-  taskList.appendChild(li);
-}
-
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .catch(err => console.error('Error al registrar SW:', err));
+    navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
   });
 }
