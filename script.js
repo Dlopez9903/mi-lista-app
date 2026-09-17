@@ -1,23 +1,72 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  deleteDoc, 
+  doc, 
+  onSnapshot, 
+  query, 
+  orderBy,
+  enableIndexedDbPersistence 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDu1bXfecLVkvVhfLmCCOgBZr67_z5JwLw",
+  authDomain: "mi-lista-sincronizada.firebaseapp.com",
+  projectId: "mi-lista-sincronizada",
+  storageBucket: "mi-lista-sincronizada.firebasestorage.app",
+  messagingSenderId: "969847361448",
+  appId: "1:969847361448:web:a2be272388a20c61fa579d",
+  measurementId: "G-KGSFQNTFX2"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+enableIndexedDbPersistence(db).catch((err) => {
+  console.log("Persistencia local activada o no soportada:", err.code);
+});
+
+const tasksRef = collection(db, "tareas");
 const taskInput = document.getElementById('taskInput');
 const addBtn = document.getElementById('addBtn');
 const taskList = document.getElementById('taskList');
 
-document.addEventListener('DOMContentLoaded', loadTasks);
+// Eventos
 addBtn.addEventListener('click', addTask);
 taskInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') addTask();
 });
 
-function addTask() {
+async function addTask() {
   const text = taskInput.value.trim();
   if (text === '') return;
 
-  createTaskElement(text);
-  saveTaskToLocalStorage(text);
-  taskInput.value = '';
+  try {
+    await addDoc(tasksRef, {
+      text: text,
+      createdAt: Date.now()
+    });
+    taskInput.value = '';
+  } catch (error) {
+    console.error("Error al guardar:", error);
+  }
 }
 
-function createTaskElement(text) {
+const q = query(tasksRef, orderBy("createdAt", "asc"));
+
+onSnapshot(q, (snapshot) => {
+  taskList.innerHTML = ''; 
+
+  snapshot.forEach((docSnapshot) => {
+    const data = docSnapshot.data();
+    const id = docSnapshot.id;
+    createTaskElement(data.text, id);
+  });
+});
+
+function createTaskElement(text, id) {
   const li = document.createElement('li');
   const span = document.createElement('span');
   span.textContent = text;
@@ -26,9 +75,12 @@ function createTaskElement(text) {
   deleteBtn.textContent = 'X';
   deleteBtn.classList.add('delete-btn');
   
-  deleteBtn.addEventListener('click', () => {
-    li.remove();
-    removeTaskFromLocalStorage(text);
+  deleteBtn.addEventListener('click', async () => {
+    try {
+      await deleteDoc(doc(db, "tareas", id));
+    } catch (error) {
+      console.error("Error al eliminar:", error);
+    }
   });
 
   li.appendChild(span);
@@ -36,34 +88,10 @@ function createTaskElement(text) {
   taskList.appendChild(li);
 }
 
-// --- LOCALSTORAGE ---
-function saveTaskToLocalStorage(taskText) {
-  let tasks = getTasksFromLocalStorage();
-  tasks.push(taskText);
-  localStorage.setItem('tasks', JSON.stringify(tasks));
-}
 
-function getTasksFromLocalStorage() {
-  const tasks = localStorage.getItem('tasks');
-  return tasks ? JSON.parse(tasks) : [];
-}
-
-function loadTasks() {
-  const tasks = getTasksFromLocalStorage();
-  tasks.forEach(task => createTaskElement(task));
-}
-
-function removeTaskFromLocalStorage(taskText) {
-  let tasks = getTasksFromLocalStorage();
-  tasks = tasks.filter(task => task !== taskText);
-  localStorage.setItem('tasks', JSON.stringify(tasks));
-}
-
-// --- REGISTRO DEL SERVICE WORKER (Para modo Offline) ---
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then(() => console.log('Service Worker Registrado'))
-      .catch(err => console.error('Error al registrar SW:', err));
+      .catch(err => console.error('Error SW:', err));
   });
 }
