@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-app-v1';
+const CACHE_NAME = 'todo-pwa-v1';
 const ASSETS = [
   './',
   './index.html',
@@ -7,7 +7,8 @@ const ASSETS = [
   './manifest.json'
 ];
 
-elf.addEventListener('install', (e) => {
+// Service Worker
+self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS);
@@ -15,10 +16,14 @@ elf.addEventListener('install', (e) => {
   );
 });
 
+// Estrategia
 self.addEventListener('fetch', (e) => {
   e.respondWith(
-    caches.match(e.request).then((response) => {
-      return response || fetch(e.request);
+    caches.match(e.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(e.request);
     })
   );
 });
