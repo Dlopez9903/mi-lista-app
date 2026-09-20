@@ -3,23 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>To Do List</title>
+  <title>To-Do List por Usuario</title>
   <link rel="stylesheet" href="style.css">
-
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#28a745">
 </head>
 <body>
 
   <div class="card">
-    <h2>To Do List</h2>
     
-    <div class="input-container">
-      <input type="text" id="taskInput" placeholder="Escribe cualquier texto aquí...">
-      <button id="addBtn">agregar</button>
+    <div id="userSelectContainer">
+      <h2>Seleccionar Usuario</h2>
+      <div class="input-container">
+        <input type="text" id="usernameInput" placeholder="Escribe tu nombre de usuario...">
+        <button id="enterUserBtn">Entrar</button>
+      </div>
     </div>
 
-    <ul id="taskList"></ul>
+    <div id="appContainer" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <span style="font-size: 0.9em;">Usuario: <strong id="currentUserLabel"></strong></span>
+        <button id="changeUserBtn" style="background-color: #6c757d; padding: 5px 10px;">Cambiar Usuario</button>
+      </div>
+      <h2>Mis Tareas</h2>
+      <div class="input-container">
+        <input type="text" id="taskInput" placeholder="Escribe cualquier texto aquí...">
+        <button id="addBtn">Agregar</button>
+      </div>
+      <ul id="taskList"></ul>
+    </div>
   </div>
 
   <script type="module" src="script.js"></script>
