@@ -8,7 +8,6 @@ import {
   onSnapshot, 
   query, 
   where,
-  orderBy,
   enableIndexedDbPersistence 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -44,12 +43,10 @@ const taskList = document.getElementById('taskList');
 let currentUser = localStorage.getItem('active_user') || null;
 let unsubscribeListener = null;
 
-// Inicializar estado según si ya había un usuario guardado
 if (currentUser) {
   loadUserSession(currentUser);
 }
 
-// Entrar con nombre de usuario
 enterUserBtn.addEventListener('click', () => {
   const name = usernameInput.value.trim().toLowerCase();
   if (name === '') return;
@@ -60,7 +57,6 @@ usernameInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') enterUserBtn.click();
 });
 
-// Cambiar de usuario
 changeUserBtn.addEventListener('click', () => {
   localStorage.removeItem('active_user');
   currentUser = null;
@@ -83,7 +79,6 @@ function loadUserSession(username) {
   listenToUserTasks(username);
 }
 
-// Agregar tarea vinculada al nombre de usuario
 addBtn.addEventListener('click', addTask);
 taskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
 
@@ -94,7 +89,7 @@ async function addTask() {
   try {
     await addDoc(tasksRef, {
       text: text,
-      user: currentUser, // Se asigna al usuario actual
+      user: currentUser,
       createdAt: Date.now()
     });
     taskInput.value = '';
@@ -103,22 +98,29 @@ async function addTask() {
   }
 }
 
-// Escuchar solo las tareas del usuario activo
 function listenToUserTasks(username) {
   if (unsubscribeListener) unsubscribeListener();
 
   const q = query(
     tasksRef, 
-    where("user", "==", username), 
-    orderBy("createdAt", "asc")
+    where("user", "==", username)
   );
 
   unsubscribeListener = onSnapshot(q, (snapshot) => {
     taskList.innerHTML = '';
+    
+    const docs = [];
     snapshot.forEach((docSnapshot) => {
-      const data = docSnapshot.data();
-      createTaskElement(data.text, docSnapshot.id);
+      docs.push({ id: docSnapshot.id, ...docSnapshot.data() });
     });
+
+    docs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+    docs.forEach((item) => {
+      createTaskElement(item.text, item.id);
+    });
+  }, (error) => {
+    console.error("Error en Snapshot:", error);
   });
 }
 
@@ -139,7 +141,6 @@ function createTaskElement(text, id) {
   taskList.appendChild(li);
 }
 
-// SW PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
