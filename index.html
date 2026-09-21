@@ -3,32 +3,47 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>To-Do List por Usuario</title>
+  <title>To-Do List</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#28a745">
 </head>
 <body>
 
-  <div class="card">
-    <div id="userSelectContainer">
-      <h2>Seleccionar Usuario</h2>
-      <div class="input-container">
-        <input type="text" id="usernameInput" placeholder="Escribe tu nombre de usuario...">
-        <button id="enterUserBtn">Entrar</button>
+  <div class="auth-wrapper">
+    <!-- PANTALLA DE INICIO DE SESIÓN / REGISTRO -->
+    <div id="authContainer" class="card auth-card">
+      <h2 class="app-title">To Do List</h2>
+      <p class="app-subtitle">Ingresa para ver y sincronizar tus tareas.</p>
+
+      <div class="auth-form">
+        <input type="email" id="authEmail" placeholder="Correo electrónico" required>
+        <input type="password" id="authPassword" placeholder="Contraseña" required>
+        
+        <button id="loginBtn" class="btn btn-primary">Iniciar sesión</button>
+        
+        <div class="divider"></div>
+
+        <button id="registerBtn" class="btn btn-secondary">Crear cuenta nueva</button>
       </div>
+
+      <p id="authError" class="error-msg"></p>
     </div>
 
-    <div id="appContainer" style="display: none;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <span style="font-size: 0.9em;">Usuario: <strong id="currentUserLabel"></strong></span>
-        <button id="changeUserBtn" style="background-color: #6c757d; padding: 5px 10px;">Cambiar Usuario</button>
+    <!-- PANTALLA PRINCIPAL DE TAREAS -->
+    <div id="appContainer" class="card app-card" style="display: none;">
+      <div class="app-header">
+        <span>Usuario: <strong id="userDisplay"></strong></span>
+        <button id="logoutBtn" class="btn-logout">Cerrar sesión</button>
       </div>
+      
       <h2>Mis Tareas</h2>
+      
       <div class="input-container">
         <input type="text" id="taskInput" placeholder="Escribe cualquier texto aquí...">
         <button id="addBtn">Agregar</button>
       </div>
+      
       <ul id="taskList"></ul>
     </div>
   </div>

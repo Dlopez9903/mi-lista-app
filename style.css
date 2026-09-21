@@ -1,72 +1,175 @@
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 body {
-  font-family: Arial, sans-serif;
-  background-color: #f4f4f9;
+  background-color: #f4f6f8;
   display: flex;
   justify-content: center;
-  padding: 20px;
-  margin: 0;
+  align-items: center;
+  min-height: 100vh;
+  padding: 15px;
 }
 
-.card {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+.auth-wrapper {
   width: 100%;
   max-width: 400px;
 }
 
-h2 {
+.card {
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.auth-card {
   text-align: center;
-  margin-top: 0;
+}
+
+.app-title {
+  color: #28a745;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.app-subtitle {
+  color: #6c757d;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form input, .input-container input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.auth-form input:focus, .input-container input:focus {
+  border-color: #28a745;
+}
+
+.btn {
+  border: none;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background-color: #28a745;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: #218838;
+}
+
+.divider {
+  border-bottom: 1px solid #e9ecef;
+  margin: 10px 0;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: #ffffff;
+  padding: 10px;
+  font-size: 0.9rem;
+  align-self: center;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.error-msg {
+  color: #dc3545;
+  font-size: 0.85rem;
+  margin-top: 12px;
+}
+
+/* Interfaz de App */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  font-size: 0.85rem;
+  color: #495057;
+}
+
+.btn-logout {
+  background: #e9ecef;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #495057;
+}
+
+.btn-logout:hover {
+  background: #dee2e6;
 }
 
 .input-container {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin: 15px 0;
 }
 
-input {
-  flex: 1;
-  padding: 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 16px; 
-}
-
-button {
-  padding: 12px 18px;
+#addBtn {
   background-color: #28a745;
   color: white;
   border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 18px;
+  padding: 0 16px;
+  border-radius: 8px;
   font-weight: bold;
+  cursor: pointer;
+}
+
+#addBtn:hover {
+  background-color: #218838;
 }
 
 ul {
   list-style: none;
-  padding: 0;
-  margin: 0;
 }
 
 li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 8px;
-  border-bottom: 1px solid #eee;
-  word-break: break-all;
+  padding: 10px 0;
+  border-bottom: 1px solid #e9ecef;
 }
 
 .delete-btn {
-  background-color: #dc3545;
-  padding: 6px 12px;
-  font-size: 14px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.delete-btn:hover {
+  background: #c82333;
 }
