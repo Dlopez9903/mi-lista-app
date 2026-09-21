@@ -48,7 +48,7 @@ if (currentUser) {
 }
 
 enterUserBtn.addEventListener('click', () => {
-  const name = usernameInput.value.trim().toLowerCase();
+  const name = usernameInput.value.trim();
   if (name === '') return;
   loadUserSession(name);
 });
