@@ -11,6 +11,14 @@ import {
   enableIndexedDbPersistence 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyDu1bXfecLVkvVhfLmCCOgBZr67_z5JwLw",
   authDomain: "mi-lista-sincronizada.firebaseapp.com",
@@ -23,61 +31,104 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app); 
 
 enableIndexedDbPersistence(db).catch(err => console.log("Persistencia:", err.code));
 
 const tasksRef = collection(db, "tareas");
 
-// DOM
-const userSelectContainer = document.getElementById('userSelectContainer');
+const authContainer = document.getElementById('authContainer');
 const appContainer = document.getElementById('appContainer');
-const usernameInput = document.getElementById('usernameInput');
-const enterUserBtn = document.getElementById('enterUserBtn');
-const currentUserLabel = document.getElementById('currentUserLabel');
-const changeUserBtn = document.getElementById('changeUserBtn');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const loginBtn = document.getElementById('loginBtn');
+const registerBtn = document.getElementById('registerBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const authError = document.getElementById('authError');
+const userDisplay = document.getElementById('userDisplay');
 
 const taskInput = document.getElementById('taskInput');
 const addBtn = document.getElementById('addBtn');
 const taskList = document.getElementById('taskList');
 
-let currentUser = localStorage.getItem('active_user') || null;
+let currentUser = null;
 let unsubscribeListener = null;
 
-if (currentUser) {
-  loadUserSession(currentUser);
-}
 
-enterUserBtn.addEventListener('click', () => {
-  const name = usernameInput.value.trim();
-  if (name === '') return;
-  loadUserSession(name);
-});
-
-usernameInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') enterUserBtn.click();
-});
-
-changeUserBtn.addEventListener('click', () => {
-  localStorage.removeItem('active_user');
-  currentUser = null;
-  if (unsubscribeListener) unsubscribeListener();
+loginBtn.addEventListener('click', async (e) => {
+  e.preventDefault();
+  authError.textContent = '';
   
-  appContainer.style.display = 'none';
-  userSelectContainer.style.display = 'block';
-  usernameInput.value = '';
-  taskList.innerHTML = '';
+  const email = authEmail.value.trim();
+  const password = authPassword.value.trim();
+
+  if (!email || !password) {
+    authError.textContent = "Por favor ingresa correo y contraseña.";
+    return;
+  }
+
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    console.error("Error al ingresar:", error);
+    authError.textContent = "Error al ingresar: Verifique su correo o contraseña.";
+  }
 });
 
-function loadUserSession(username) {
-  currentUser = username;
-  localStorage.setItem('active_user', username);
-  currentUserLabel.textContent = username;
+registerBtn.addEventListener('click', async (e) => {
+  e.preventDefault();
+  authError.textContent = '';
 
-  userSelectContainer.style.display = 'none';
-  appContainer.style.display = 'block';
+  const email = authEmail.value.trim();
+  const password = authPassword.value.trim();
 
-  listenToUserTasks(username);
-}
+  if (!email || !password) {
+    authError.textContent = "Por favor ingresa un correo y contraseña.";
+    return;
+  }
+
+  if (password.length < 6) {
+    authError.textContent = "La contraseña debe tener al menos 6 caracteres.";
+    return;
+  }
+
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    console.error("Error al registrar:", error);
+    if (error.code === 'auth/email-already-in-use') {
+      authError.textContent = "Este correo ya está registrado. Intenta iniciar sesión.";
+    } else {
+      authError.textContent = "Error al registrar: " + error.message;
+    }
+  }
+});
+
+logoutBtn.addEventListener('click', () => {
+  signOut(auth);
+});
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+    if (userDisplay) userDisplay.textContent = user.email;
+    
+    authContainer.style.display = 'none';
+    appContainer.style.display = 'block';
+    authEmail.value = '';
+    authPassword.value = '';
+    
+    listenToUserTasks(user.uid);
+  } else {
+    currentUser = null;
+    if (unsubscribeListener) unsubscribeListener();
+    
+    authContainer.style.display = 'block';
+    appContainer.style.display = 'none';
+    taskList.innerHTML = '';
+  }
+});
+
 
 addBtn.addEventListener('click', addTask);
 taskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
@@ -89,7 +140,7 @@ async function addTask() {
   try {
     await addDoc(tasksRef, {
       text: text,
-      user: currentUser,
+      userId: currentUser.uid, 
       createdAt: Date.now()
     });
     taskInput.value = '';
@@ -98,12 +149,12 @@ async function addTask() {
   }
 }
 
-function listenToUserTasks(username) {
+function listenToUserTasks(uid) {
   if (unsubscribeListener) unsubscribeListener();
 
   const q = query(
     tasksRef, 
-    where("user", "==", username)
+    where("userId", "==", uid)
   );
 
   unsubscribeListener = onSnapshot(q, (snapshot) => {
