@@ -16,7 +16,9 @@ import {
   signInWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -33,7 +35,11 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-enableIndexedDbPersistence(db).catch(err => console.log("Persistencia Firestore:", err.code));
+// Habilitar la persistencia del token de sesión en la memoria local
+setPersistence(auth, browserLocalPersistence).catch(err => console.log("Error Persistencia Auth:", err));
+
+// Habilitar la base de datos offline (cola de tareas por sincronizar)
+enableIndexedDbPersistence(db).catch(err => console.log("Error Persistencia Firestore:", err.code));
 
 const tasksRef = collection(db, "tareas");
 
@@ -85,7 +91,7 @@ loginForm.addEventListener('submit', async (e) => {
   loginError.textContent = '';
 
   if (!navigator.onLine) {
-    loginError.textContent = "Sin conexión a internet. Para iniciar sesión necesitas estar en línea.";
+    loginError.textContent = "Sin conexión. Necesitas internet la primera vez para validar tus credenciales.";
     return;
   }
 
@@ -93,11 +99,7 @@ loginForm.addEventListener('submit', async (e) => {
     await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value.trim());
   } catch (error) {
     console.error("Error Login:", error);
-    if (error.code === 'auth/network-request-failed') {
-      loginError.textContent = "Sin conexión a internet. Verifica tu red.";
-    } else {
-      loginError.textContent = "Correo o contraseña incorrectos.";
-    }
+    loginError.textContent = "Correo o contraseña incorrectos.";
   }
 });
 
@@ -107,7 +109,7 @@ registerForm.addEventListener('submit', async (e) => {
   registerError.textContent = '';
 
   if (!navigator.onLine) {
-    registerError.textContent = "Sin conexión a internet. Para registrarte necesitas estar en línea.";
+    registerError.textContent = "Sin conexión. Necesitas internet para registrarte.";
     return;
   }
 
@@ -135,8 +137,6 @@ registerForm.addEventListener('submit', async (e) => {
     console.error("Error Registro:", error);
     if (error.code === 'auth/email-already-in-use') {
       registerError.textContent = "Este correo ya está registrado. Intenta iniciar sesión.";
-    } else if (error.code === 'auth/network-request-failed') {
-      registerError.textContent = "Sin conexión a internet. Verifica tu red.";
     } else {
       registerError.textContent = "Error al registrar: " + error.message;
     }
@@ -146,7 +146,7 @@ registerForm.addEventListener('submit', async (e) => {
 // Cerrar sesión
 logoutBtn.addEventListener('click', () => signOut(auth));
 
-// Cambios de sesión
+// Detectar Token de Sesión (Online u Offline)
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
@@ -169,6 +169,7 @@ onAuthStateChanged(auth, (user) => {
     regEmail.value = '';
     regPassword.value = '';
 
+    // Escuchar tareas (funciona offline desde IndexedDB)
     listenToUserTasks(user.uid);
   } else {
     currentUser = null;
@@ -182,7 +183,7 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// --- TAREAS ---
+// --- MANEJO DE TAREAS (ONLINE Y OFFLINE) ---
 
 addBtn.addEventListener('click', addTask);
 taskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
@@ -192,6 +193,7 @@ async function addTask() {
   if (text === '' || !currentUser) return;
 
   try {
+    // addDoc guarda la tarea localmente si estás offline y la sube cuando vuelve la red
     await addDoc(tasksRef, {
       text: text,
       userId: currentUser.uid,
@@ -199,7 +201,7 @@ async function addTask() {
     });
     taskInput.value = '';
   } catch (error) {
-    console.error("Error al guardar:", error);
+    console.error("Error al guardar tarea:", error);
   }
 }
 
@@ -243,7 +245,7 @@ function createTaskElement(text, id) {
   taskList.appendChild(li);
 }
 
-// SW PWA
+// Registrar Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));

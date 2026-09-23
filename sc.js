@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-pwa-v1';
+const CACHE_NAME = 'todo-pwa-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -7,7 +7,7 @@ const ASSETS = [
   './manifest.json'
 ];
 
-// Instalación: Guardar archivos en caché
+// Instalar y guardar assets en caché
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -17,7 +17,7 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
-// Activación: Limpiar cachés antiguas
+// Activar y limpiar cachés viejas
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -31,11 +31,19 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Estrategia Network First / Cache Fallback
+// Interceptar solicitudes: Estrategia Cache First (Si no hay red, entrega de la caché)
 self.addEventListener('fetch', (e) => {
   e.respondWith(
-    fetch(e.request).catch(() => {
-      return caches.match(e.request);
+    caches.match(e.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(e.request).catch(() => {
+        // Mantiene la app viva sin dinosaurio
+        if (e.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
+      });
     })
   );
 });
