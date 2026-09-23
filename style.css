@@ -173,3 +173,17 @@ li {
 .delete-btn:hover {
   background: #c82333;
 }
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #28a745;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 5px;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}

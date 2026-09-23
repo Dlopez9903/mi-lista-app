@@ -10,13 +10,13 @@ import {
   where,
   enableIndexedDbPersistence 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
 import { 
   getAuth, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  updateProfile
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -31,22 +31,39 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app); 
+const auth = getAuth(app);
 
 enableIndexedDbPersistence(db).catch(err => console.log("Persistencia:", err.code));
 
 const tasksRef = collection(db, "tareas");
 
-const authContainer = document.getElementById('authContainer');
+// DOM - Pantallas
+const loginCard = document.getElementById('loginCard');
+const registerCard = document.getElementById('registerCard');
 const appContainer = document.getElementById('appContainer');
-const authEmail = document.getElementById('authEmail');
-const authPassword = document.getElementById('authPassword');
-const loginBtn = document.getElementById('loginBtn');
-const registerBtn = document.getElementById('registerBtn');
+
+// DOM - Formularios
+const loginForm = document.getElementById('loginForm');
+const registerForm = document.getElementById('registerForm');
+
+// DOM - Inputs Login
+const loginEmail = document.getElementById('loginEmail');
+const loginPassword = document.getElementById('loginPassword');
+const loginError = document.getElementById('loginError');
+
+// DOM - Inputs Registro
+const regName = document.getElementById('regName');
+const regEmail = document.getElementById('regEmail');
+const regPassword = document.getElementById('regPassword');
+const registerError = document.getElementById('registerError');
+
+// DOM - Botones de navegación
+const showRegisterBtn = document.getElementById('showRegisterBtn');
+const showLoginBtn = document.getElementById('showLoginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
-const authError = document.getElementById('authError');
 const userDisplay = document.getElementById('userDisplay');
 
+// DOM - App
 const taskInput = document.getElementById('taskInput');
 const addBtn = document.getElementById('addBtn');
 const taskList = document.getElementById('taskList');
@@ -54,81 +71,97 @@ const taskList = document.getElementById('taskList');
 let currentUser = null;
 let unsubscribeListener = null;
 
+// --- NAVEGACIÓN ENTRE VISTAS ---
 
-loginBtn.addEventListener('click', async (e) => {
+showRegisterBtn.addEventListener('click', () => {
+  loginCard.style.display = 'none';
+  registerCard.style.display = 'block';
+  loginError.textContent = '';
+});
+
+showLoginBtn.addEventListener('click', () => {
+  registerCard.style.display = 'none';
+  loginCard.style.display = 'block';
+  registerError.textContent = '';
+});
+
+// --- LÓGICA DE AUTENTICACIÓN ---
+
+// Submit Login
+loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  authError.textContent = '';
-  
-  const email = authEmail.value.trim();
-  const password = authPassword.value.trim();
-
-  if (!email || !password) {
-    authError.textContent = "Por favor ingresa correo y contraseña.";
-    return;
-  }
+  loginError.textContent = '';
 
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value.trim());
   } catch (error) {
-    console.error("Error al ingresar:", error);
-    authError.textContent = "Error al ingresar: Verifique su correo o contraseña.";
+    console.error("Error Login:", error);
+    loginError.textContent = "Correo o contraseña incorrectos.";
   }
 });
 
-registerBtn.addEventListener('click', async (e) => {
+// Submit Registro
+registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  authError.textContent = '';
+  registerError.textContent = '';
 
-  const email = authEmail.value.trim();
-  const password = authPassword.value.trim();
-
-  if (!email || !password) {
-    authError.textContent = "Por favor ingresa un correo y contraseña.";
-    return;
-  }
+  const name = regName.value.trim();
+  const email = regEmail.value.trim();
+  const password = regPassword.value.trim();
 
   if (password.length < 6) {
-    authError.textContent = "La contraseña debe tener al menos 6 caracteres.";
+    registerError.textContent = "La contraseña debe tener al menos 6 caracteres.";
     return;
   }
 
   try {
-    await createUserWithEmailAndPassword(auth, email, password);
+    // 1. Crear usuario en Firebase
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    // 2. Asignar el nombre al perfil del usuario
+    await updateProfile(userCredential.user, { displayName: name });
   } catch (error) {
-    console.error("Error al registrar:", error);
+    console.error("Error Registro:", error);
     if (error.code === 'auth/email-already-in-use') {
-      authError.textContent = "Este correo ya está registrado. Intenta iniciar sesión.";
+      registerError.textContent = "Este correo ya está registrado. Intenta iniciar sesión.";
     } else {
-      authError.textContent = "Error al registrar: " + error.message;
+      registerError.textContent = "Error al registrar: " + error.message;
     }
   }
 });
 
-logoutBtn.addEventListener('click', () => {
-  signOut(auth);
-});
+// Cerrar sesión
+logoutBtn.addEventListener('click', () => signOut(auth));
 
+// Escuchar cambios de sesión
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
-    if (userDisplay) userDisplay.textContent = user.email;
-    
-    authContainer.style.display = 'none';
+    // Muestra el nombre o el correo si no hay nombre cargado
+    if (userDisplay) userDisplay.textContent = user.displayName || user.email;
+
+    loginCard.style.display = 'none';
+    registerCard.style.display = 'none';
     appContainer.style.display = 'block';
-    authEmail.value = '';
-    authPassword.value = '';
-    
+
+    loginEmail.value = '';
+    loginPassword.value = '';
+    regName.value = '';
+    regEmail.value = '';
+    regPassword.value = '';
+
     listenToUserTasks(user.uid);
   } else {
     currentUser = null;
     if (unsubscribeListener) unsubscribeListener();
-    
-    authContainer.style.display = 'block';
+
+    loginCard.style.display = 'block';
+    registerCard.style.display = 'none';
     appContainer.style.display = 'none';
     taskList.innerHTML = '';
   }
 });
 
+// --- TAREAS ---
 
 addBtn.addEventListener('click', addTask);
 taskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
@@ -140,7 +173,7 @@ async function addTask() {
   try {
     await addDoc(tasksRef, {
       text: text,
-      userId: currentUser.uid, 
+      userId: currentUser.uid,
       createdAt: Date.now()
     });
     taskInput.value = '';
@@ -152,10 +185,7 @@ async function addTask() {
 function listenToUserTasks(uid) {
   if (unsubscribeListener) unsubscribeListener();
 
-  const q = query(
-    tasksRef, 
-    where("userId", "==", uid)
-  );
+  const q = query(tasksRef, where("userId", "==", uid));
 
   unsubscribeListener = onSnapshot(q, (snapshot) => {
     taskList.innerHTML = '';
@@ -171,7 +201,7 @@ function listenToUserTasks(uid) {
       createTaskElement(item.text, item.id);
     });
   }, (error) => {
-    console.error("Error en Snapshot:", error);
+    console.error("Error Snapshot:", error);
   });
 }
 
@@ -192,6 +222,7 @@ function createTaskElement(text, id) {
   taskList.appendChild(li);
 }
 
+// SW PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));

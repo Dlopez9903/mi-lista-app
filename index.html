@@ -11,27 +11,46 @@
 <body>
 
   <div class="auth-wrapper">
-    <div id="authContainer" class="card auth-card">
+    <div id="loginCard" class="card auth-card">
       <h2 class="app-title">To Do List</h2>
       <p class="app-subtitle">Ingresa para ver y sincronizar tus tareas.</p>
 
-      <div class="auth-form">
-        <input type="email" id="authEmail" placeholder="Correo electrónico" required>
-        <input type="password" id="authPassword" placeholder="Contraseña" required>
+      <form id="loginForm" class="auth-form">
+        <input type="email" id="loginEmail" placeholder="Correo electrónico" required>
+        <input type="password" id="loginPassword" placeholder="Contraseña" required>
         
-        <button id="loginBtn" class="btn btn-primary">Iniciar sesión</button>
+        <button type="submit" id="loginBtn" class="btn btn-primary">Iniciar sesión</button>
         
         <div class="divider"></div>
 
-        <button id="registerBtn" class="btn btn-secondary">Crear cuenta nueva</button>
-      </div>
+        <button type="button" id="showRegisterBtn" class="btn btn-secondary">Crear cuenta nueva</button>
+      </form>
 
-      <p id="authError" class="error-msg"></p>
+      <p id="loginError" class="error-msg"></p>
+    </div>
+
+    <div id="registerCard" class="card auth-card" style="display: none;">
+      <h2 class="app-title">Crear cuenta</h2>
+      <p class="app-subtitle">Es rápido y fácil.</p>
+
+      <form id="registerForm" class="auth-form">
+        <input type="text" id="regName" placeholder="Nombre completo" required>
+        <input type="email" id="regEmail" placeholder="Correo electrónico" required>
+        <input type="password" id="regPassword" placeholder="Contraseña (mínimo 6 caracteres)" required>
+        
+        <button type="submit" id="registerBtn" class="btn btn-primary">Registrarte</button>
+        
+        <div class="divider"></div>
+
+        <button type="button" id="showLoginBtn" class="btn btn-link">¿Ya tienes una cuenta?</button>
+      </form>
+
+      <p id="registerError" class="error-msg"></p>
     </div>
 
     <div id="appContainer" class="card app-card" style="display: none;">
       <div class="app-header">
-        <span>Usuario: <strong id="userDisplay"></strong></span>
+        <span>Hola, <strong id="userDisplay"></strong></span>
         <button id="logoutBtn" class="btn-logout">Cerrar sesión</button>
       </div>
       
