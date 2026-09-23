@@ -65,7 +65,6 @@ const taskList = document.getElementById('taskList');
 let currentUser = null;
 let unsubscribeListener = null;
 
-
 showRegisterBtn.addEventListener('click', () => {
   loginCard.style.display = 'none';
   registerCard.style.display = 'block';
@@ -78,8 +77,6 @@ showLoginBtn.addEventListener('click', () => {
   registerError.textContent = '';
 });
 
-
-// Login
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   loginError.textContent = '';
@@ -92,7 +89,6 @@ loginForm.addEventListener('submit', async (e) => {
   }
 });
 
-//  Registro
 registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   registerError.textContent = '';
@@ -101,16 +97,23 @@ registerForm.addEventListener('submit', async (e) => {
   const email = regEmail.value.trim();
   const password = regPassword.value.trim();
 
+  if (!name) {
+    registerError.textContent = "Por favor ingresa tu nombre completo.";
+    return;
+  }
+
   if (password.length < 6) {
     registerError.textContent = "La contraseña debe tener al menos 6 caracteres.";
     return;
   }
 
   try {
-    // usuario en Firebase
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    //  nombre al perfil del usuario
+    
     await updateProfile(userCredential.user, { displayName: name });
+
+    if (userDisplay) userDisplay.textContent = name;
+
   } catch (error) {
     console.error("Error Registro:", error);
     if (error.code === 'auth/email-already-in-use') {
@@ -121,15 +124,19 @@ registerForm.addEventListener('submit', async (e) => {
   }
 });
 
-// cerrar sesión
 logoutBtn.addEventListener('click', () => signOut(auth));
 
-//  cambios de sesión
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
-    // nombre o el correo si no hay nombre cargado
-    if (userDisplay) userDisplay.textContent = user.displayName || user.email;
+
+    const nameToShow = user.displayName || user.email.split('@')[0];
+    
+    if (userDisplay && !userDisplay.textContent) {
+      userDisplay.textContent = nameToShow;
+    } else if (userDisplay && user.displayName) {
+      userDisplay.textContent = user.displayName;
+    }
 
     loginCard.style.display = 'none';
     registerCard.style.display = 'none';
@@ -146,6 +153,7 @@ onAuthStateChanged(auth, (user) => {
     currentUser = null;
     if (unsubscribeListener) unsubscribeListener();
 
+    if (userDisplay) userDisplay.textContent = '';
     loginCard.style.display = 'block';
     registerCard.style.display = 'none';
     appContainer.style.display = 'none';
@@ -153,7 +161,6 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// --- TAREAS ---
 
 addBtn.addEventListener('click', addTask);
 taskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
@@ -214,7 +221,6 @@ function createTaskElement(text, id) {
   taskList.appendChild(li);
 }
 
-// SW PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
