@@ -37,33 +37,27 @@ enableIndexedDbPersistence(db).catch(err => console.log("Persistencia:", err.cod
 
 const tasksRef = collection(db, "tareas");
 
-// DOM - Pantallas
 const loginCard = document.getElementById('loginCard');
 const registerCard = document.getElementById('registerCard');
 const appContainer = document.getElementById('appContainer');
 
-// DOM - Formularios
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
 
-// DOM - Inputs Login
 const loginEmail = document.getElementById('loginEmail');
 const loginPassword = document.getElementById('loginPassword');
 const loginError = document.getElementById('loginError');
 
-// DOM - Inputs Registro
 const regName = document.getElementById('regName');
 const regEmail = document.getElementById('regEmail');
 const regPassword = document.getElementById('regPassword');
 const registerError = document.getElementById('registerError');
 
-// DOM - Botones de navegación
 const showRegisterBtn = document.getElementById('showRegisterBtn');
 const showLoginBtn = document.getElementById('showLoginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const userDisplay = document.getElementById('userDisplay');
 
-// DOM - App
 const taskInput = document.getElementById('taskInput');
 const addBtn = document.getElementById('addBtn');
 const taskList = document.getElementById('taskList');
@@ -71,7 +65,6 @@ const taskList = document.getElementById('taskList');
 let currentUser = null;
 let unsubscribeListener = null;
 
-// --- NAVEGACIÓN ENTRE VISTAS ---
 
 showRegisterBtn.addEventListener('click', () => {
   loginCard.style.display = 'none';
@@ -85,9 +78,8 @@ showLoginBtn.addEventListener('click', () => {
   registerError.textContent = '';
 });
 
-// --- LÓGICA DE AUTENTICACIÓN ---
 
-// Submit Login
+// Login
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   loginError.textContent = '';
@@ -100,7 +92,7 @@ loginForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Submit Registro
+//  Registro
 registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   registerError.textContent = '';
@@ -115,9 +107,9 @@ registerForm.addEventListener('submit', async (e) => {
   }
 
   try {
-    // 1. Crear usuario en Firebase
+    // usuario en Firebase
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    // 2. Asignar el nombre al perfil del usuario
+    //  nombre al perfil del usuario
     await updateProfile(userCredential.user, { displayName: name });
   } catch (error) {
     console.error("Error Registro:", error);
@@ -129,14 +121,14 @@ registerForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Cerrar sesión
+// cerrar sesión
 logoutBtn.addEventListener('click', () => signOut(auth));
 
-// Escuchar cambios de sesión
+//  cambios de sesión
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
-    // Muestra el nombre o el correo si no hay nombre cargado
+    // nombre o el correo si no hay nombre cargado
     if (userDisplay) userDisplay.textContent = user.displayName || user.email;
 
     loginCard.style.display = 'none';
