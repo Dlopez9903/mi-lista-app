@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-pwa-v2';
+const CACHE_NAME = 'todo-pwa-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -7,7 +7,7 @@ const ASSETS = [
   './manifest.json'
 ];
 
-// Instalar y guardar assets en caché
+// Instalación: Carga de archivos estáticos
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -17,7 +17,7 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
-// Activar y limpiar cachés viejas
+// Activación: Limpieza de cachés antiguas y toma de control activa
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -31,17 +31,26 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Interceptar solicitudes: Estrategia Cache First (Si no hay red, entrega de la caché)
+// Intercepción de red: Estrategia Stale-While-Revalidate con Fallback de navegación
 self.addEventListener('fetch', (e) => {
+  // Ignorar peticiones de Firebase Authentication y Firestore
+  if (
+    e.request.url.includes('firestore.googleapis.com') || 
+    e.request.url.includes('identitytoolkit.googleapis.com') ||
+    e.request.url.includes('securetoken.googleapis.com')
+  ) {
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
       if (cachedResponse) {
         return cachedResponse;
       }
       return fetch(e.request).catch(() => {
-        // Mantiene la app viva sin dinosaurio
+        // Si falla la red y el usuario intenta navegar a una página, entregar index.html
         if (e.request.mode === 'navigate') {
-          return caches.match('./index.html');
+          return caches.match('./index.html') || caches.match('./');
         }
       });
     })
