@@ -77,21 +77,37 @@ showLoginBtn.addEventListener('click', () => {
   registerError.textContent = '';
 });
 
+// Login con verificación de red
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   loginError.textContent = '';
+
+  if (!navigator.onLine) {
+    loginError.textContent = "Sin conexión a internet. Para iniciar sesión necesitas estar en línea.";
+    return;
+  }
 
   try {
     await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value.trim());
   } catch (error) {
     console.error("Error Login:", error);
-    loginError.textContent = "Correo o contraseña incorrectos.";
+    if (error.code === 'auth/network-request-failed') {
+      loginError.textContent = "Sin conexión a internet. Verifica tu red.";
+    } else {
+      loginError.textContent = "Correo o contraseña incorrectos.";
+    }
   }
 });
 
+// Registro con verificación de red
 registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   registerError.textContent = '';
+
+  if (!navigator.onLine) {
+    registerError.textContent = "Sin conexión a internet. Para registrarte necesitas estar en línea.";
+    return;
+  }
 
   const name = regName.value.trim();
   const email = regEmail.value.trim();
@@ -109,7 +125,6 @@ registerForm.addEventListener('submit', async (e) => {
 
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
     await updateProfile(userCredential.user, { displayName: name });
 
     if (userDisplay) userDisplay.textContent = name;
@@ -118,14 +133,18 @@ registerForm.addEventListener('submit', async (e) => {
     console.error("Error Registro:", error);
     if (error.code === 'auth/email-already-in-use') {
       registerError.textContent = "Este correo ya está registrado. Intenta iniciar sesión.";
+    } else if (error.code === 'auth/network-request-failed') {
+      registerError.textContent = "Sin conexión a internet. Verifica tu red.";
     } else {
       registerError.textContent = "Error al registrar: " + error.message;
     }
   }
 });
 
+// Cerrar sesión
 logoutBtn.addEventListener('click', () => signOut(auth));
 
+// Cambios de sesión
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
@@ -161,6 +180,7 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
+// --- TAREAS ---
 
 addBtn.addEventListener('click', addTask);
 taskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
@@ -221,6 +241,7 @@ function createTaskElement(text, id) {
   taskList.appendChild(li);
 }
 
+// SW PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
