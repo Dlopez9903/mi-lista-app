@@ -69,7 +69,7 @@ const taskList = document.getElementById('taskList');
 let currentUser = null;
 let unsubscribeListener = null;
 
-// --- CONTROL DE NAVEGACIÓN ENTRE FORMULARIOS ---
+// --- NAVEGACIÓN ---
 showRegisterBtn.addEventListener('click', () => {
   loginCard.style.display = 'none';
   registerCard.style.display = 'block';
@@ -82,23 +82,39 @@ showLoginBtn.addEventListener('click', () => {
   registerError.textContent = '';
 });
 
-// --- VERIFICACIÓN INICIAL DE SESIÓN OFFLINE EN CARGA ---
-// Esto evita que te mande al login al presionar F5/refresh sin internet
+// --- CARGA INMEDIATA SIN ESPERA (EVITA PANTALLA VACÍA EN REFRESH) ---
 const cachedUid = localStorage.getItem('pwa_user_uid');
 const cachedName = localStorage.getItem('pwa_user_name');
 
 if (cachedUid) {
   currentUser = { uid: cachedUid, displayName: cachedName };
   if (userDisplay) userDisplay.textContent = cachedName;
+  
+  // Ocultar logins y mostrar app de inmediato
   loginCard.style.display = 'none';
   registerCard.style.display = 'none';
   appContainer.style.display = 'block';
+
+  // Renderizar de inmediato las tareas guardadas en localStorage (0ms de retraso)
+  renderCachedTasks();
+  
+  // Iniciar escucha de Firestore en segundo plano
   listenToUserTasks(cachedUid);
+}
+
+// Renderiza tareas desde el localStorage para evitar el tiempo de carga
+function renderCachedTasks() {
+  const localTasks = JSON.parse(localStorage.getItem('pwa_cached_tasks') || '[]');
+  if (localTasks.length > 0) {
+    taskList.innerHTML = '';
+    localTasks.forEach((item) => {
+      createTaskElement(item.text, item.id);
+    });
+  }
 }
 
 // --- AUTENTICACIÓN ---
 
-// Login
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   loginError.textContent = '';
@@ -116,7 +132,6 @@ loginForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Registro
 registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   registerError.textContent = '';
@@ -143,9 +158,7 @@ registerForm.addEventListener('submit', async (e) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(userCredential.user, { displayName: name });
-
     if (userDisplay) userDisplay.textContent = name;
-
   } catch (error) {
     console.error("Error Registro:", error);
     if (error.code === 'auth/email-already-in-use') {
@@ -156,20 +169,18 @@ registerForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Cerrar sesión
 logoutBtn.addEventListener('click', () => {
   localStorage.removeItem('pwa_user_uid');
   localStorage.removeItem('pwa_user_name');
+  localStorage.removeItem('pwa_cached_tasks');
   signOut(auth);
 });
 
-// Escuchador de estado de Firebase
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
     const nameToShow = user.displayName || user.email.split('@')[0];
 
-    // Guardar credenciales locales para sostener las vistas sin conexión
     localStorage.setItem('pwa_user_uid', user.uid);
     localStorage.setItem('pwa_user_name', nameToShow);
 
@@ -187,14 +198,13 @@ onAuthStateChanged(auth, (user) => {
 
     listenToUserTasks(user.uid);
   } else {
-    // Si NO hay sesión en línea pero SÍ tenemos caché local y estamos offline, MANTENER vista de app
     if (!navigator.onLine && localStorage.getItem('pwa_user_uid')) {
       return; 
     }
 
-    // Si explícitamente cerró sesión o está online sin usuario, borramos caché y enviamos a login
     localStorage.removeItem('pwa_user_uid');
     localStorage.removeItem('pwa_user_name');
+    localStorage.removeItem('pwa_cached_tasks');
     currentUser = null;
     if (unsubscribeListener) unsubscribeListener();
 
@@ -206,7 +216,7 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// --- TAREAS ---
+// --- TAREAS CON RESPALDO INSTANTÁNEO ---
 
 addBtn.addEventListener('click', addTask);
 taskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
@@ -233,8 +243,6 @@ function listenToUserTasks(uid) {
   const q = query(tasksRef, where("userId", "==", uid));
 
   unsubscribeListener = onSnapshot(q, (snapshot) => {
-    taskList.innerHTML = '';
-    
     const docs = [];
     snapshot.forEach((docSnapshot) => {
       docs.push({ id: docSnapshot.id, ...docSnapshot.data() });
@@ -242,6 +250,11 @@ function listenToUserTasks(uid) {
 
     docs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
+    // Respaldar inmediatamente en caché de respuesta ultra rápida
+    localStorage.setItem('pwa_cached_tasks', JSON.stringify(docs));
+
+    // Renderizar la vista actualizada de Firestore
+    taskList.innerHTML = '';
     docs.forEach((item) => {
       createTaskElement(item.text, item.id);
     });
