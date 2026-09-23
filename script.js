@@ -35,10 +35,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Habilitar la persistencia del token de sesión en la memoria local
 setPersistence(auth, browserLocalPersistence).catch(err => console.log("Error Persistencia Auth:", err));
-
-// Habilitar la base de datos offline (cola de tareas por sincronizar)
 enableIndexedDbPersistence(db).catch(err => console.log("Error Persistencia Firestore:", err.code));
 
 const tasksRef = collection(db, "tareas");
@@ -72,7 +69,7 @@ const taskList = document.getElementById('taskList');
 let currentUser = null;
 let unsubscribeListener = null;
 
-// Modos de navegación
+// --- CONTROL DE NAVEGACIÓN ENTRE FORMULARIOS ---
 showRegisterBtn.addEventListener('click', () => {
   loginCard.style.display = 'none';
   registerCard.style.display = 'block';
@@ -85,13 +82,29 @@ showLoginBtn.addEventListener('click', () => {
   registerError.textContent = '';
 });
 
+// --- VERIFICACIÓN INICIAL DE SESIÓN OFFLINE EN CARGA ---
+// Esto evita que te mande al login al presionar F5/refresh sin internet
+const cachedUid = localStorage.getItem('pwa_user_uid');
+const cachedName = localStorage.getItem('pwa_user_name');
+
+if (cachedUid) {
+  currentUser = { uid: cachedUid, displayName: cachedName };
+  if (userDisplay) userDisplay.textContent = cachedName;
+  loginCard.style.display = 'none';
+  registerCard.style.display = 'none';
+  appContainer.style.display = 'block';
+  listenToUserTasks(cachedUid);
+}
+
+// --- AUTENTICACIÓN ---
+
 // Login
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   loginError.textContent = '';
 
   if (!navigator.onLine) {
-    loginError.textContent = "Sin conexión. Necesitas internet la primera vez para validar tus credenciales.";
+    loginError.textContent = "Sin conexión a internet. Para iniciar sesión necesitas estar en línea.";
     return;
   }
 
@@ -109,7 +122,7 @@ registerForm.addEventListener('submit', async (e) => {
   registerError.textContent = '';
 
   if (!navigator.onLine) {
-    registerError.textContent = "Sin conexión. Necesitas internet para registrarte.";
+    registerError.textContent = "Sin conexión a internet. Para registrarte necesitas estar en línea.";
     return;
   }
 
@@ -144,20 +157,23 @@ registerForm.addEventListener('submit', async (e) => {
 });
 
 // Cerrar sesión
-logoutBtn.addEventListener('click', () => signOut(auth));
+logoutBtn.addEventListener('click', () => {
+  localStorage.removeItem('pwa_user_uid');
+  localStorage.removeItem('pwa_user_name');
+  signOut(auth);
+});
 
-// Detectar Token de Sesión (Online u Offline)
+// Escuchador de estado de Firebase
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
-
     const nameToShow = user.displayName || user.email.split('@')[0];
-    
-    if (userDisplay && !userDisplay.textContent) {
-      userDisplay.textContent = nameToShow;
-    } else if (userDisplay && user.displayName) {
-      userDisplay.textContent = user.displayName;
-    }
+
+    // Guardar credenciales locales para sostener las vistas sin conexión
+    localStorage.setItem('pwa_user_uid', user.uid);
+    localStorage.setItem('pwa_user_name', nameToShow);
+
+    if (userDisplay) userDisplay.textContent = nameToShow;
 
     loginCard.style.display = 'none';
     registerCard.style.display = 'none';
@@ -169,9 +185,16 @@ onAuthStateChanged(auth, (user) => {
     regEmail.value = '';
     regPassword.value = '';
 
-    // Escuchar tareas (funciona offline desde IndexedDB)
     listenToUserTasks(user.uid);
   } else {
+    // Si NO hay sesión en línea pero SÍ tenemos caché local y estamos offline, MANTENER vista de app
+    if (!navigator.onLine && localStorage.getItem('pwa_user_uid')) {
+      return; 
+    }
+
+    // Si explícitamente cerró sesión o está online sin usuario, borramos caché y enviamos a login
+    localStorage.removeItem('pwa_user_uid');
+    localStorage.removeItem('pwa_user_name');
     currentUser = null;
     if (unsubscribeListener) unsubscribeListener();
 
@@ -183,7 +206,7 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// --- MANEJO DE TAREAS (ONLINE Y OFFLINE) ---
+// --- TAREAS ---
 
 addBtn.addEventListener('click', addTask);
 taskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
@@ -193,7 +216,6 @@ async function addTask() {
   if (text === '' || !currentUser) return;
 
   try {
-    // addDoc guarda la tarea localmente si estás offline y la sube cuando vuelve la red
     await addDoc(tasksRef, {
       text: text,
       userId: currentUser.uid,
@@ -245,7 +267,7 @@ function createTaskElement(text, id) {
   taskList.appendChild(li);
 }
 
-// Registrar Service Worker
+// SW PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
