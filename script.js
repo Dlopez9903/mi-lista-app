@@ -33,10 +33,11 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-enableIndexedDbPersistence(db).catch(err => console.log("Persistencia:", err.code));
+enableIndexedDbPersistence(db).catch(err => console.log("Persistencia Firestore:", err.code));
 
 const tasksRef = collection(db, "tareas");
 
+// DOM
 const loginCard = document.getElementById('loginCard');
 const registerCard = document.getElementById('registerCard');
 const appContainer = document.getElementById('appContainer');
@@ -65,6 +66,7 @@ const taskList = document.getElementById('taskList');
 let currentUser = null;
 let unsubscribeListener = null;
 
+// Modos de navegación
 showRegisterBtn.addEventListener('click', () => {
   loginCard.style.display = 'none';
   registerCard.style.display = 'block';
@@ -77,35 +79,62 @@ showLoginBtn.addEventListener('click', () => {
   registerError.textContent = '';
 });
 
-// Login con verificación de red
+// --- HELPER DE CACHÉ LOCAL ---
+function saveLocalUser(email, password, uid, displayName) {
+  const users = JSON.parse(localStorage.getItem('pwa_cached_users') || '{}');
+  users[email.toLowerCase()] = {
+    password: password,
+    uid: uid,
+    displayName: displayName || email.split('@')[0]
+  };
+  localStorage.setItem('pwa_cached_users', JSON.stringify(users));
+}
+
+function getLocalUser(email, password) {
+  const users = JSON.parse(localStorage.getItem('pwa_cached_users') || '{}');
+  const user = users[email.toLowerCase()];
+  if (user && user.password === password) {
+    return user;
+  }
+  return null;
+}
+
+// --- INICIO DE SESIÓN (ONLINE / OFFLINE) ---
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   loginError.textContent = '';
 
-  if (!navigator.onLine) {
-    loginError.textContent = "Sin conexión a internet. Para iniciar sesión necesitas estar en línea.";
-    return;
-  }
+  const email = loginEmail.value.trim();
+  const password = loginPassword.value.trim();
 
-  try {
-    await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value.trim());
-  } catch (error) {
-    console.error("Error Login:", error);
-    if (error.code === 'auth/network-request-failed') {
-      loginError.textContent = "Sin conexión a internet. Verifica tu red.";
-    } else {
+  // INTENTO EN LÍNEA CON FIREBASE
+  if (navigator.onLine) {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Guardar en caché para futuros logins offline
+      saveLocalUser(email, password, userCredential.user.uid, userCredential.user.displayName);
+    } catch (error) {
+      console.error("Error Login Firebase:", error);
       loginError.textContent = "Correo o contraseña incorrectos.";
+    }
+  } else {
+    // INTENTO OFFLINE DESDE CACHÉ LOCAL
+    const cachedUser = getLocalUser(email, password);
+    if (cachedUser) {
+      loginOfflineSession(cachedUser);
+    } else {
+      loginError.textContent = "Sin conexión. No se encontraron credenciales guardadas en este dispositivo para este usuario.";
     }
   }
 });
 
-// Registro con verificación de red
+// Registrar nuevo usuario
 registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   registerError.textContent = '';
 
   if (!navigator.onLine) {
-    registerError.textContent = "Sin conexión a internet. Para registrarte necesitas estar en línea.";
+    registerError.textContent = "Para registrar una cuenta nueva por primera vez necesitas conexión a internet.";
     return;
   }
 
@@ -127,35 +156,64 @@ registerForm.addEventListener('submit', async (e) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(userCredential.user, { displayName: name });
 
+    // Guardar en caché local
+    saveLocalUser(email, password, userCredential.user.uid, name);
+
     if (userDisplay) userDisplay.textContent = name;
 
   } catch (error) {
     console.error("Error Registro:", error);
     if (error.code === 'auth/email-already-in-use') {
       registerError.textContent = "Este correo ya está registrado. Intenta iniciar sesión.";
-    } else if (error.code === 'auth/network-request-failed') {
-      registerError.textContent = "Sin conexión a internet. Verifica tu red.";
     } else {
       registerError.textContent = "Error al registrar: " + error.message;
     }
   }
 });
 
-// Cerrar sesión
-logoutBtn.addEventListener('click', () => signOut(auth));
+// Iniciar interfaz en modo Offline simulado
+function loginOfflineSession(user) {
+  currentUser = user;
+  localStorage.setItem('pwa_offline_active_uid', user.uid);
+  localStorage.setItem('pwa_offline_active_name', user.displayName);
 
-// Cambios de sesión
+  if (userDisplay) userDisplay.textContent = user.displayName;
+
+  loginCard.style.display = 'none';
+  registerCard.style.display = 'none';
+  appContainer.style.display = 'block';
+
+  loginEmail.value = '';
+  loginPassword.value = '';
+
+  listenToUserTasks(user.uid);
+}
+
+// Cerrar sesión
+logoutBtn.addEventListener('click', () => {
+  localStorage.removeItem('pwa_offline_active_uid');
+  localStorage.removeItem('pwa_offline_active_name');
+  if (navigator.onLine) {
+    signOut(auth);
+  } else {
+    currentUser = null;
+    if (unsubscribeListener) unsubscribeListener();
+    loginCard.style.display = 'block';
+    appContainer.style.display = 'none';
+    taskList.innerHTML = '';
+  }
+});
+
+// Escuchador Firebase Online + Respaldo Offline
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
-
     const nameToShow = user.displayName || user.email.split('@')[0];
-    
-    if (userDisplay && !userDisplay.textContent) {
-      userDisplay.textContent = nameToShow;
-    } else if (userDisplay && user.displayName) {
-      userDisplay.textContent = user.displayName;
-    }
+
+    // Actualizar credenciales en caché
+    saveLocalUser(user.email, loginPassword.value || '', user.uid, nameToShow);
+
+    if (userDisplay) userDisplay.textContent = nameToShow;
 
     loginCard.style.display = 'none';
     registerCard.style.display = 'none';
@@ -163,20 +221,25 @@ onAuthStateChanged(auth, (user) => {
 
     loginEmail.value = '';
     loginPassword.value = '';
-    regName.value = '';
-    regEmail.value = '';
-    regPassword.value = '';
 
     listenToUserTasks(user.uid);
   } else {
-    currentUser = null;
-    if (unsubscribeListener) unsubscribeListener();
+    // Si no hay sesión activa de Firebase, revisar si hay sesión local offline activa
+    const offlineUid = localStorage.getItem('pwa_offline_active_uid');
+    const offlineName = localStorage.getItem('pwa_offline_active_name');
 
-    if (userDisplay) userDisplay.textContent = '';
-    loginCard.style.display = 'block';
-    registerCard.style.display = 'none';
-    appContainer.style.display = 'none';
-    taskList.innerHTML = '';
+    if (!navigator.onLine && offlineUid) {
+      loginOfflineSession({ uid: offlineUid, displayName: offlineName });
+    } else {
+      currentUser = null;
+      if (unsubscribeListener) unsubscribeListener();
+
+      if (userDisplay) userDisplay.textContent = '';
+      loginCard.style.display = 'block';
+      registerCard.style.display = 'none';
+      appContainer.style.display = 'none';
+      taskList.innerHTML = '';
+    }
   }
 });
 
@@ -197,7 +260,7 @@ async function addTask() {
     });
     taskInput.value = '';
   } catch (error) {
-    console.error("Error al guardar:", error);
+    console.error("Error al guardar tarea:", error);
   }
 }
 
@@ -220,7 +283,7 @@ function listenToUserTasks(uid) {
       createTaskElement(item.text, item.id);
     });
   }, (error) => {
-    console.error("Error Snapshot:", error);
+    console.error("Error Snapshot Firestore:", error);
   });
 }
 
